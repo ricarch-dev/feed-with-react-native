@@ -2,7 +2,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Video } from '@/types';
 import { Pause, Play } from 'lucide-react-native';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { ThemedText } from './template/themed-text';
 import { ThemedView } from './template/themed-view';
@@ -17,10 +17,17 @@ interface VideoTileProps {
   isActive?: boolean;
 }
 
-export const VideoTile: React.FC<VideoTileProps> = ({ video, isActive = false }) => {
+const VideoTileComponent: React.FC<VideoTileProps> = ({ video, isActive = false }) => {
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
-  const styles = createStyles(colors, colorScheme);
+  const styles = useMemo(() => createStyles(colors, colorScheme), [colors, colorScheme]);
+
+  const formattedDuration = useMemo(() => {
+    if (!video.duration) return '--:--';
+    const minutes = Math.floor(video.duration / 60);
+    const seconds = video.duration % 60;
+    return `${minutes}:${String(seconds).padStart(2, '0')}`;
+  }, [video.duration]);
 
   return (
     <ThemedView style={styles.container}>
@@ -40,7 +47,7 @@ export const VideoTile: React.FC<VideoTileProps> = ({ video, isActive = false })
           </ThemedText>
         </View>
         <ThemedText style={styles.duration}>
-          {video.duration ? `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, '0')}` : '--:--'}
+          {formattedDuration}
         </ThemedText>
       </View>
     </ThemedView>
@@ -96,6 +103,16 @@ const createStyles = (colors: typeof Colors.light, colorScheme: 'light' | 'dark'
     flex: 1,
     marginRight: 8,
   },
+});
+
+// Memoize VideoTile component to prevent unnecessary re-renders
+export const VideoTile = React.memo(VideoTileComponent, (prevProps, nextProps) => {
+  // Only re-render if video data or isActive state changes
+  return (
+    prevProps.video.id === nextProps.video.id &&
+    prevProps.video.url === nextProps.video.url &&
+    prevProps.isActive === nextProps.isActive
+  );
 });
 
 // Export dimensions for use in other components

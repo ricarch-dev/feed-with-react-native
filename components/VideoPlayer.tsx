@@ -12,16 +12,21 @@ interface VideoPlayerProps {
  * - UI (titles, overlays, etc.) vive en `VideoTile`.
  * - Control principal de autoplay viene por la prop `isActive`.
  */
-export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
+const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
   const videoRef = useRef<Video | null>(null);
 
   const [isBuffering, setIsBuffering] = useState(true);
   const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [hasError, setHasError] = useState(false);
 
   const [hasLoggedStart, setHasLoggedStart] = useState(false);
   const [hasLoggedComplete, setHasLoggedComplete] = useState(false);
   const [hasLoggedTTFF, setHasLoggedTTFF] = useState(false);
   const [mountTime] = useState<number>(() => Date.now());
+
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 2000; // 2 seconds
 
   const shouldPlay = isActive && !manuallyPaused;
 
@@ -39,9 +44,38 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
     (status: AVPlaybackStatus) => {
       if (!status.isLoaded) {
         if ('error' in status) {
-          log('error', { message: status.error });
+          const errorMessage = status.error;
+          log('error', { message: errorMessage });
+          
+          // Retry logic for playback errors
+          if (retryCount < MAX_RETRIES && isActive) {
+            setHasError(true);
+            setTimeout(() => {
+              if (videoRef.current && isActive) {
+                setRetryCount((prev) => prev + 1);
+                setHasError(false);
+                videoRef.current
+                  .replayAsync()
+                  .then(() => {
+                    log('retry_success', { attempt: retryCount + 1 });
+                  })
+                  .catch((retryError) => {
+                    log('retry_failed', { attempt: retryCount + 1, error: String(retryError) });
+                  });
+              }
+            }, RETRY_DELAY);
+          } else if (retryCount >= MAX_RETRIES) {
+            log('max_retries_reached', { uri, retryCount });
+            setHasError(true);
+          }
         }
         return;
+      }
+
+      // Reset error state on successful load
+      if (status.isLoaded && hasError) {
+        setHasError(false);
+        setRetryCount(0);
       }
 
       setIsBuffering(status.isBuffering);
@@ -65,14 +99,37 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
         log('playback_complete', { durationMillis: status.durationMillis });
       }
     },
-    [hasLoggedComplete, hasLoggedStart, hasLoggedTTFF, log, mountTime]
+    [hasLoggedComplete, hasLoggedStart, hasLoggedTTFF, log, mountTime, retryCount, isActive, hasError]
   );
 
   const handleError = useCallback(
     (error: unknown) => {
       log('playback_error', { error: String(error) });
+      
+      // Retry logic for initialization/network errors
+      if (retryCount < MAX_RETRIES && isActive) {
+        setHasError(true);
+        setTimeout(() => {
+          if (videoRef.current && isActive) {
+            setRetryCount((prev) => prev + 1);
+            setHasError(false);
+            // Try to reload the video
+            videoRef.current
+              .loadAsync({ uri })
+              .then(() => {
+                log('retry_load_success', { attempt: retryCount + 1 });
+              })
+              .catch((retryError) => {
+                log('retry_load_failed', { attempt: retryCount + 1, error: String(retryError) });
+              });
+          }
+        }, RETRY_DELAY);
+      } else if (retryCount >= MAX_RETRIES) {
+        log('max_retries_reached', { uri, retryCount });
+        setHasError(true);
+      }
     },
-    [log]
+    [log, retryCount, isActive, uri]
   );
 
   const togglePause = useCallback(() => {
@@ -102,6 +159,8 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
       setHasLoggedComplete(false);
       setHasLoggedTTFF(false);
       setIsBuffering(true);
+      setRetryCount(0);
+      setHasError(false);
     }
   }, [isActive, log]);
 
@@ -131,9 +190,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
         onError={handleError}
       />
 
-      {isBuffering && (
+      {(isBuffering || hasError) && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator color="#ffffff" />
+          {hasError && retryCount >= MAX_RETRIES ? (
+            <View style={styles.errorContainer}>
+              <ActivityIndicator color="#ffffff" size="small" />
+            </View>
+          ) : (
+            <ActivityIndicator color="#ffffff" />
+          )}
         </View>
       )}
     </Pressable>
@@ -154,6 +219,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.25)',
   },
+  errorContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+// Memoize VideoPlayer component to prevent unnecessary re-renders
+export const VideoPlayer = React.memo(VideoPlayerComponent, (prevProps, nextProps) => {
+  // Only re-render if URI or isActive state changes
+  return (
+    prevProps.uri === nextProps.uri &&
+    prevProps.isActive === nextProps.isActive
+  );
 });
 
 

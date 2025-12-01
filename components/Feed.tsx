@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { FlatList, ViewToken, StyleSheet, Dimensions } from 'react-native';
 import { Post } from './Post';
 import { Post as PostType } from '@/types';
+import { prefetchVideoMetadata } from '@/utils/prefetch';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -16,6 +17,26 @@ interface ViewableItemsChanged {
 
 export const Feed: React.FC<FeedProps> = ({ posts }) => {
   const [activePostId, setActivePostId] = useState<string | null>(null);
+
+  // Find active post index for prefetching
+  const activePostIndex = useMemo(() => {
+    if (!activePostId) return -1;
+    return posts.findIndex((p) => p.id === activePostId);
+  }, [activePostId, posts]);
+
+  // Prefetch next post's first video metadata
+  useEffect(() => {
+    if (activePostIndex >= 0 && activePostIndex < posts.length - 1) {
+      const nextPost = posts[activePostIndex + 1];
+      if (nextPost.videos.length > 0) {
+        const firstVideo = nextPost.videos[0];
+        // Prefetch metadata for the first video of the next post
+        prefetchVideoMetadata(firstVideo.url).catch(() => {
+          // Silently fail - prefetching is optional
+        });
+      }
+    }
+  }, [activePostIndex, posts]);
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: ViewableItemsChanged) => {
@@ -95,10 +116,10 @@ export const Feed: React.FC<FeedProps> = ({ posts }) => {
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={viewabilityConfig.current}
       removeClippedSubviews={true} // Optimize for performance
-      maxToRenderPerBatch={5} // Render 5 items per batch
+      maxToRenderPerBatch={3} // Render 3 items per batch (reduced for better performance)
       updateCellsBatchingPeriod={50} // Batch updates every 50ms
-      initialNumToRender={3} // Render 3 items initially
-      windowSize={10} // Render 10 screens worth of items
+      initialNumToRender={2} // Render 2 items initially (reduced for faster initial render)
+      windowSize={5} // Render 5 screens worth of items (reduced for better memory management)
       showsVerticalScrollIndicator={false}
       style={styles.container}
       contentContainerStyle={styles.contentContainer}

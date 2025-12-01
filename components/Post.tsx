@@ -1,8 +1,9 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Post as PostType } from '@/types';
+import { prefetchVideoMetadata } from '@/utils/prefetch';
 import { Heart, MessageCircleMore, Share2 } from 'lucide-react-native';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Dimensions, FlatList, StyleSheet, View, ViewToken } from 'react-native';
 import { ThemedText } from './template/themed-text';
 import { ThemedView } from './template/themed-view';
@@ -21,7 +22,7 @@ interface ViewableItemsChanged {
   changed: ViewToken[];
 }
 
-export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
+const PostComponent: React.FC<PostProps> = ({ post, isActive = false }) => {
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme() ?? 'light';
@@ -72,14 +73,42 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
     minimumViewTime: 100, // Minimum time in ms before considering it viewable
   });
 
-  const renderVideo = ({ item, index }: { item: PostType['videos'][0]; index: number }) => {
-    // Only the active video in the active post should be considered active
-    const isVideoActive = isActive && index === activeVideoIndex;
-    
-    return <VideoTile video={item} isActive={isVideoActive} />;
-  };
+  const renderVideo = useCallback(
+    ({ item, index }: { item: PostType['videos'][0]; index: number }) => {
+      // Only the active video in the active post should be considered active
+      const isVideoActive = isActive && index === activeVideoIndex;
+      
+      return <VideoTile video={item} isActive={isVideoActive} />;
+    },
+    [isActive, activeVideoIndex]
+  );
 
-  const styles = createStyles(colors, colorScheme);
+  const keyExtractor = useCallback((item: PostType['videos'][0]) => item.id, []);
+
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: VIDEO_TILE_DIMENSIONS.width + 16,
+      offset: (VIDEO_TILE_DIMENSIONS.width + 16) * index,
+      index,
+    }),
+    []
+  );
+
+  // Prefetch next video in horizontal carousel
+  useEffect(() => {
+    if (isActive && post.videos.length > 0) {
+      const nextVideoIndex = activeVideoIndex + 1;
+      if (nextVideoIndex < post.videos.length) {
+        const nextVideo = post.videos[nextVideoIndex];
+        // Prefetch metadata for the next video
+        prefetchVideoMetadata(nextVideo.url).catch(() => {
+          // Silently fail - prefetching is optional
+        });
+      }
+    }
+  }, [isActive, activeVideoIndex, post.videos]);
+
+  const styles = useMemo(() => createStyles(colors, colorScheme), [colors, colorScheme]);
 
   return (
     <ThemedView style={styles.container}>
@@ -107,7 +136,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
           ref={carouselRef}
           data={post.videos}
           renderItem={renderVideo}
-          keyExtractor={(item) => item.id}
+          keyExtractor={keyExtractor}
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
@@ -115,11 +144,11 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
           decelerationRate="fast"
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig.current}
-          getItemLayout={(_, index) => ({
-            length: VIDEO_TILE_DIMENSIONS.width + 16,
-            offset: (VIDEO_TILE_DIMENSIONS.width + 16) * index,
-            index,
-          })}
+          getItemLayout={getItemLayout}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={3}
+          initialNumToRender={2}
+          windowSize={5}
         />
         
         {/* Video indicators */}
