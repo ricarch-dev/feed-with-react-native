@@ -6,6 +6,7 @@ import React from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
 import { ThemedText } from './template/themed-text';
 import { ThemedView } from './template/themed-view';
+import { VideoPlayer } from './VideoPlayer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const VIDEO_TILE_WIDTH = SCREEN_WIDTH * 0.9; // 90% of screen width
@@ -23,18 +24,21 @@ export const VideoTile: React.FC<VideoTileProps> = ({ video, isActive = false })
 
   return (
     <ThemedView style={styles.container}>
-      {/* Placeholder for video player - will be replaced with actual player later */}
+      {/* Video player */}
       <View style={styles.videoPlaceholder}>
-        <ThemedText style={styles.placeholderText}>
-          {isActive ? <Play /> : <Pause />} {video.title}
-        </ThemedText>
-        <ThemedText style={styles.urlText} numberOfLines={1}>
-          {video.url}
-        </ThemedText>
+        <VideoPlayer uri={video.url} isActive={isActive} />
       </View>
       
       {/* Video info overlay */}
       <View style={styles.infoOverlay}>
+        <View style={styles.titleContainer}>
+          <ThemedText style={styles.placeholderText} numberOfLines={1}>
+            {isActive ? <Play /> : <Pause />} {video.title}
+          </ThemedText>
+          <ThemedText style={styles.urlText} numberOfLines={1}>
+            {video.url}
+          </ThemedText>
+        </View>
         <ThemedText style={styles.duration}>
           {video.duration ? `${Math.floor(video.duration / 60)}:${String(video.duration % 60).padStart(2, '0')}` : '--:--'}
         </ThemedText>
@@ -56,14 +60,12 @@ const createStyles = (colors: typeof Colors.light, colorScheme: 'light' | 'dark'
   videoPlaceholder: {
     width: '100%',
     height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colorScheme === 'dark' ? '#2a2a2a' : '#e0e0e0',
+    overflow: 'hidden',
+    backgroundColor: colorScheme === 'dark' ? '#000000' : '#000000',
   },
   placeholderText: {
     fontSize: 18,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 4,
   },
   urlText: {
     fontSize: 10,
@@ -73,18 +75,26 @@ const createStyles = (colors: typeof Colors.light, colorScheme: 'light' | 'dark'
   },
   infoOverlay: {
     position: 'absolute',
-    bottom: 0,
+    left: 0,
     right: 0,
-    padding: 8,
+    bottom: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     backgroundColor: colorScheme === 'dark' 
-      ? 'rgba(0, 0, 0, 0.6)' 
-      : 'rgba(255, 255, 255, 0.8)',
-    borderTopLeftRadius: 8,
+      ? 'rgba(0, 0, 0, 0.6)'
+      : 'rgba(255, 255, 255, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   duration: {
     fontSize: 12,
     fontWeight: '600',
     color: colors.text,
+  },
+  titleContainer: {
+    flex: 1,
+    marginRight: 8,
   },
 });
 
