@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 import { Video, type AVPlaybackStatus } from 'expo-av';
 
@@ -78,6 +78,42 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({ uri, isActive }) => {
   const togglePause = useCallback(() => {
     // Control manual simple: el usuario puede pausar/reanudar tocando
     setManuallyPaused((prev) => !prev);
+  }, []);
+
+  // Unload video resources when not active (core lifecycle management)
+  useEffect(() => {
+    if (!isActive && videoRef.current) {
+      // When video becomes inactive, unload it to free memory and CPU/GPU resources
+      videoRef.current
+        .unloadAsync()
+        .then(() => {
+          log('video_unloaded', { reason: 'inactive' });
+          // Reset manual pause state when video becomes inactive
+          setManuallyPaused(false);
+          // Reset buffering state
+          setIsBuffering(true);
+        })
+        .catch((error) => {
+          log('unload_error', { error: String(error) });
+        });
+    } else if (isActive && videoRef.current) {
+      // When video becomes active again, reset analytics flags for new playback session
+      setHasLoggedStart(false);
+      setHasLoggedComplete(false);
+      setHasLoggedTTFF(false);
+      setIsBuffering(true);
+    }
+  }, [isActive, log]);
+
+  // Cleanup: unload video when component unmounts
+  useEffect(() => {
+    return () => {
+      if (videoRef.current) {
+        videoRef.current.unloadAsync().catch(() => {
+          // Ignore errors during cleanup
+        });
+      }
+    };
   }, []);
 
   return (

@@ -19,41 +19,47 @@ export const Feed: React.FC<FeedProps> = ({ posts }) => {
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: ViewableItemsChanged) => {
-      // Find the post that is most visible (highest percentage visible)
+      // Find the post that is 100% visible (fully visible)
+      // Only one post should be active at a time
       if (viewableItems.length === 0) {
         setActivePostId(null);
         return;
       }
 
-      // Find the item with the highest visibility percentage
-      let mostVisible: ViewToken | null = null;
-      let maxPercentVisible = 0;
+      // Find the item that is fully visible (100%)
+      // Prefer the first fully visible item, or the one with highest visibility
+      let activePost: PostType | null = null;
+      let maxVisibility = 0;
 
       for (const item of viewableItems) {
         if (item.isViewable && item.item) {
-          // Use the percentage visible if available, otherwise default to 100% for fully visible items
-          const percentVisible = item.index !== null ? 100 : 0;
-          if (percentVisible > maxPercentVisible) {
-            mostVisible = item;
-            maxPercentVisible = percentVisible;
+          // Check if item is fully visible (we use 100% threshold in viewabilityConfig)
+          // For items that pass the threshold, they should be considered 100% visible
+          const post = item.item as PostType;
+          
+          // If this is the first fully visible item, use it
+          if (!activePost) {
+            activePost = post;
+            maxVisibility = 100;
+          } else {
+            // If multiple items are visible, prefer the one that appeared first
+            // (usually the one with lower index)
+            if (item.index !== null && item.index < (viewableItems.find(v => v.item?.id === activePost?.id)?.index ?? Infinity)) {
+              activePost = post;
+            }
           }
         }
       }
 
-      // Set active post if we found a visible item
-      if (mostVisible && mostVisible.item) {
-        const post = mostVisible.item as PostType;
-        setActivePostId(post.id);
-      } else {
-        setActivePostId(null);
-      }
+      // Set active post only if we found a fully visible item
+      setActivePostId(activePost?.id ?? null);
     },
     []
   );
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 80, // Post must be 80% visible to be considered active
-    minimumViewTime: 100, // Minimum time in ms before considering it viewable
+    itemVisiblePercentThreshold: 100, // Post must be 100% visible to be considered active
+    minimumViewTime: 200, // Minimum time in ms before considering it viewable
   });
 
   const renderPost = useCallback(
