@@ -36,7 +36,7 @@ const VideoTileComponent: React.FC<VideoTileProps> = ({ video, isActive = false 
         <VideoPlayer uri={video.url} isActive={isActive} />
       </View>
       
-      {/* Video info overlay */}
+      {/* Video info overlay
       <View style={styles.infoOverlay}>
         <View style={styles.titleContainer}>
           <ThemedText style={styles.placeholderText} numberOfLines={1}>
@@ -49,7 +49,7 @@ const VideoTileComponent: React.FC<VideoTileProps> = ({ video, isActive = false 
         <ThemedText style={styles.duration}>
           {formattedDuration}
         </ThemedText>
-      </View>
+      </View> */}
     </ThemedView>
   );
 };

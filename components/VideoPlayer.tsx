@@ -1,6 +1,6 @@
+import { ResizeMode, Video, type AVPlaybackStatus } from 'expo-av';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
-import { Video, type AVPlaybackStatus } from 'expo-av';
 
 interface VideoPlayerProps {
   uri: string;
@@ -19,7 +19,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [hasError, setHasError] = useState(false);
-
+  const [_showOverlayIcon, setShowOverlayIcon] = useState(false);
   const [hasLoggedStart, setHasLoggedStart] = useState(false);
   const [hasLoggedComplete, setHasLoggedComplete] = useState(false);
   const [hasLoggedTTFF, setHasLoggedTTFF] = useState(false);
@@ -31,8 +31,6 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
   const shouldPlay = isActive && !manuallyPaused;
 
   const log = useCallback((event: string, extra?: Record<string, unknown>) => {
-    // Hook de analytics simple (se puede reemplazar por algo más robusto)
-    // eslint-disable-next-line no-console
     console.log('[VideoAnalytics]', event, {
       uri,
       timestamp: new Date().toISOString(),
@@ -80,7 +78,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
 
       setIsBuffering(status.isBuffering);
 
-      // Time to first frame: primera vez que está cargado y no está bufferizando
+      // Time to first frame: first time it's loaded and not buffering
       if (!hasLoggedTTFF && !status.isBuffering) {
         const ttff = Date.now() - mountTime;
         setHasLoggedTTFF(true);
@@ -132,37 +130,72 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
     [log, retryCount, isActive, uri]
   );
 
-  const togglePause = useCallback(() => {
-    // Control manual simple: el usuario puede pausar/reanudar tocando
-    setManuallyPaused((prev) => !prev);
+  const hideOverlayIcon = useCallback(() => {
+    setShowOverlayIcon(false);
   }, []);
 
-  // Unload video resources when not active (core lifecycle management)
+  const togglePause = useCallback(() => {
+    setManuallyPaused((prev) => {
+      const newState = !prev;
+      setShowOverlayIcon(true);
+
+      if (!newState) {
+        setTimeout(() => {
+          hideOverlayIcon();
+        }, 700);
+      }
+      return newState;
+    });
+  }, [hideOverlayIcon]);
+
+  // Load and manage video lifecycle
   useEffect(() => {
-    if (!isActive && videoRef.current) {
-      // When video becomes inactive, unload it to free memory and CPU/GPU resources
+    if (!videoRef.current) return;
+
+    if (isActive) {
+      // When video becomes active, load and play
       videoRef.current
-        .unloadAsync()
+        .loadAsync({ uri }, { shouldPlay: shouldPlay, isMuted: false })
         .then(() => {
-          log('video_unloaded', { reason: 'inactive' });
-          // Reset manual pause state when video becomes inactive
-          setManuallyPaused(false);
-          // Reset buffering state
+          log('video_loaded_active', { uri });
+          // Reset analytics flags for new playback session
+          setHasLoggedStart(false);
+          setHasLoggedComplete(false);
+          setHasLoggedTTFF(false);
           setIsBuffering(true);
+          setRetryCount(0);
+          setHasError(false);
         })
         .catch((error) => {
-          log('unload_error', { error: String(error) });
+          log('load_error', { error: String(error) });
         });
-    } else if (isActive && videoRef.current) {
-      // When video becomes active again, reset analytics flags for new playback session
-      setHasLoggedStart(false);
-      setHasLoggedComplete(false);
-      setHasLoggedTTFF(false);
-      setIsBuffering(true);
-      setRetryCount(0);
-      setHasError(false);
+    } else {
+      // When video becomes inactive, pause first (faster than unload)
+      videoRef.current
+        .pauseAsync()
+        .catch(() => {
+          // Ignore errors
+        });
+      
+      // Unload after delay to free memory, but allow quick return
+      const unloadTimer = setTimeout(() => {
+        if (videoRef.current && !isActive) {
+          videoRef.current
+            .unloadAsync()
+            .then(() => {
+              log('video_unloaded', { reason: 'inactive_after_delay' });
+              setManuallyPaused(false);
+              setIsBuffering(true);
+            })
+            .catch((error) => {
+              log('unload_error', { error: String(error) });
+            });
+        }
+      }, 3000); // 3 second delay before unloading
+
+      return () => clearTimeout(unloadTimer);
     }
-  }, [isActive, log]);
+  }, [isActive, shouldPlay, uri, log]);
 
   // Cleanup: unload video when component unmounts
   useEffect(() => {
@@ -185,9 +218,11 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
         source={{ uri }}
         shouldPlay={shouldPlay}
         isLooping
-        resizeMode="cover"
+        resizeMode={ResizeMode.COVER}
         onPlaybackStatusUpdate={handleStatusUpdate}
         onError={handleError}
+        useNativeControls={false}
+        progressUpdateIntervalMillis={100}
       />
 
       {(isBuffering || hasError) && (

@@ -8,6 +8,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface FeedProps {
   posts: PostType[];
+  onScrollDirectionChange?: (direction: 'up' | 'down') => void;
 }
 
 interface ViewableItemsChanged {
@@ -15,8 +16,10 @@ interface ViewableItemsChanged {
   changed: ViewToken[];
 }
 
-export const Feed: React.FC<FeedProps> = ({ posts }) => {
+export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) => {
   const [activePostId, setActivePostId] = useState<string | null>(null);
+  const lastScrollY = useRef(0);
+  const scrollDirection = useRef<'up' | 'down'>('up');
 
   // Find active post index for prefetching
   const activePostIndex = useMemo(() => {
@@ -107,6 +110,24 @@ export const Feed: React.FC<FeedProps> = ({ posts }) => {
 
   const keyExtractor = useCallback((item: PostType) => item.id, []);
 
+  const handleScroll = useCallback(
+    (event: any) => {
+      const currentScrollY = event.nativeEvent.contentOffset.y;
+      const direction = currentScrollY > lastScrollY.current ? 'down' : 'up';
+      
+      // Only trigger if direction actually changed
+      if (direction !== scrollDirection.current) {
+        scrollDirection.current = direction;
+        if (onScrollDirectionChange) {
+          onScrollDirectionChange(direction);
+        }
+      }
+      
+      lastScrollY.current = currentScrollY;
+    },
+    [onScrollDirectionChange]
+  );
+
   return (
     <FlatList
       data={posts}
@@ -115,6 +136,8 @@ export const Feed: React.FC<FeedProps> = ({ posts }) => {
       getItemLayout={getItemLayout}
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={viewabilityConfig.current}
+      onScroll={handleScroll}
+      scrollEventThrottle={16}
       removeClippedSubviews={true} // Optimize for performance
       maxToRenderPerBatch={3} // Render 3 items per batch (reduced for better performance)
       updateCellsBatchingPeriod={50} // Batch updates every 50ms
@@ -133,7 +156,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
   },
   contentContainer: {
-    paddingBottom: 20,
+    paddingBottom: 80, // Extra padding for bottom navbar
   },
 });
 

@@ -22,55 +22,72 @@ interface ViewableItemsChanged {
   changed: ViewToken[];
 }
 
-const PostComponent: React.FC<PostProps> = ({ post, isActive = false }) => {
+export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
   const carouselRef = useRef<FlatList>(null);
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
 
-  // Horizontal visibility detection using onViewableItemsChanged
+  // Calculate active index based on scroll position (primary method)
+  const handleScroll = useCallback(
+    (event: any) => {
+      const contentOffsetX = event.nativeEvent.contentOffset.x;
+      const itemWidth = VIDEO_TILE_DIMENSIONS.width + 16; // width + margin
+      
+      // Calculate which video is currently centered/visible
+      const newIndex = Math.round(contentOffsetX / itemWidth);
+      
+      // Ensure index is within bounds
+      const clampedIndex = Math.max(0, Math.min(newIndex, post.videos.length - 1));
+      
+      // Update state only if index changed
+      setActiveVideoIndex((prevIndex) => {
+        if (prevIndex !== clampedIndex) {
+          return clampedIndex;
+        }
+        return prevIndex;
+      });
+    },
+    [post.videos.length]
+  );
+
+  // Horizontal visibility detection using onViewableItemsChanged (backup method)
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: ViewableItemsChanged) => {
-      // Find the video that is fully visible in the horizontal carousel
+      // Find the video that is most visible (centered or highest visibility)
       if (viewableItems.length === 0) {
-        setActiveVideoIndex(0);
         return;
       }
 
-      // Find the first fully visible video item
-      let activeVideo: PostType['videos'][0] | null = null;
-      let activeIndex = 0;
+      let mostVisibleIndex = activeVideoIndex;
+      let bestItem: ViewToken | null = null;
 
       for (const item of viewableItems) {
-        if (item.isViewable && item.item) {
-          const video = item.item as PostType['videos'][0];
-          const index = item.index ?? 0;
+        if (item.isViewable && item.item && item.index !== null) {
+          const index = item.index;
           
-          // Use the first visible item, or prefer the one with lower index
-          if (!activeVideo || index < activeIndex) {
-            activeVideo = video;
-            activeIndex = index;
+          if (index >= 0 && index < post.videos.length) {
+            // Prefer the item that is viewable and has a valid index
+            // If we don't have a best item yet, or this one is more centered, use it
+            if (!bestItem || (item.index !== null && item.index === activeVideoIndex)) {
+              bestItem = item;
+              mostVisibleIndex = index;
+            }
           }
         }
       }
 
-      // Update active video index
-      if (activeVideo) {
-        setActiveVideoIndex((prevIndex) => {
-          // Only update if the index actually changed
-          if (prevIndex !== activeIndex) {
-            return activeIndex;
-          }
-          return prevIndex;
-        });
+      // Update if we found a valid index that's different
+      if (mostVisibleIndex !== activeVideoIndex && mostVisibleIndex >= 0 && mostVisibleIndex < post.videos.length) {
+        setActiveVideoIndex(mostVisibleIndex);
       }
     },
-    []
+    [activeVideoIndex, post.videos.length]
   );
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 100, // Video must be 100% visible to be considered active
-    minimumViewTime: 100, // Minimum time in ms before considering it viewable
+    itemVisiblePercentThreshold: 50, // Reduced threshold for better detection
+    minimumViewTime: 50, // Reduced time for faster response
   });
 
   const renderVideo = useCallback(
@@ -142,10 +159,12 @@ const PostComponent: React.FC<PostProps> = ({ post, isActive = false }) => {
           showsHorizontalScrollIndicator={false}
           snapToInterval={VIDEO_TILE_DIMENSIONS.width + 16} // width + margin
           decelerationRate="fast"
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig.current}
           getItemLayout={getItemLayout}
-          removeClippedSubviews={true}
+          removeClippedSubviews={false} // Disable to ensure proper visibility detection
           maxToRenderPerBatch={3}
           initialNumToRender={2}
           windowSize={5}
