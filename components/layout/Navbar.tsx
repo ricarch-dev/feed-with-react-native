@@ -24,7 +24,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (onMenuPress) {
       onMenuPress();
     } else {
-      // Default behavior: log to console
+      //TODO: Default behavior: log to console
       console.log('[Navbar] Menu pressed');
     }
   };
@@ -33,7 +33,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     if (onSearchPress) {
       onSearchPress();
     } else {
-      // Default behavior: log to console
+      //TODO: Default behavior: log to console
       console.log('[Navbar] Search pressed');
     }
   };

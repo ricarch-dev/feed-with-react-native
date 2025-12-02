@@ -1,7 +1,7 @@
 import { Post as PostType } from '@/types';
 import { prefetchVideoMetadata } from '@/utils/prefetch';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, ViewToken } from 'react-native';
+import { Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, ViewToken } from 'react-native';
 import Animated from 'react-native-reanimated';
 import { Post } from './Post';
 
@@ -39,7 +39,7 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
         const firstVideo = nextPost.videos[0];
         // Prefetch metadata for the first video of the next post
         prefetchVideoMetadata(firstVideo.url).catch(() => {
-          // Silently fail - prefetching is optional
+          //! Silently fail - prefetching is optional
         });
       }
     }
@@ -115,7 +115,7 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
   const keyExtractor = useCallback((item: PostType) => item.id, []);
 
   const handleScroll = useCallback(
-    (event: any) => {
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const currentScrollY = event.nativeEvent.contentOffset.y;
       const direction = currentScrollY > lastScrollY.current ? 'down' : 'up';
       
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
   },
   contentContainer: {
-    paddingBottom: 80, // Extra padding for bottom navbar
+    paddingBottom: 80,
   },
 });
 

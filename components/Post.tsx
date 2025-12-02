@@ -4,7 +4,7 @@ import { Post as PostType } from '@/types';
 import { prefetchVideoMetadata } from '@/utils/prefetch';
 import { Heart, MessageCircleMore, Share2 } from 'lucide-react-native';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Dimensions, FlatList, StyleSheet, View, ViewToken } from 'react-native';
+import { Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, StyleSheet, View, ViewToken } from 'react-native';
 import { ThemedText } from './template/themed-text';
 import { ThemedView } from './template/themed-view';
 import { VIDEO_TILE_DIMENSIONS, VideoTile } from './VideoTile';
@@ -30,7 +30,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
 
   // Calculate active index based on scroll position (primary method)
   const handleScroll = useCallback(
-    (event: any) => {
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const contentOffsetX = event.nativeEvent.contentOffset.x;
       const itemWidth = VIDEO_TILE_DIMENSIONS.width + 16; // width + margin
       
@@ -157,7 +157,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
           horizontal
           pagingEnabled
           showsHorizontalScrollIndicator={false}
-          snapToInterval={VIDEO_TILE_DIMENSIONS.width + 16} // width + margin
+          snapToInterval={VIDEO_TILE_DIMENSIONS.width + 16}
           decelerationRate="fast"
           onScroll={handleScroll}
           scrollEventThrottle={16}

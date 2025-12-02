@@ -41,7 +41,7 @@ export const BottomNavbar: React.FC<BottomNavbarProps> = ({ isVisible = true }) 
   });
 
   const handleIconPress = (iconName: string) => {
-    // Placeholder for future functionality
+    //TODO: Placeholder for future functionality
     console.log(`[BottomNavbar] ${iconName} pressed`);
   };
 

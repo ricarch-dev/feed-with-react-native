@@ -205,7 +205,7 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
         if (player && isActive) {
           player.play();
         }
-      }, 100); // Reduced to 100ms for faster response
+      }, 100); // Small delay before playing to avoid overwhelming the network
       
       return () => clearTimeout(playTimeout);
     } else {

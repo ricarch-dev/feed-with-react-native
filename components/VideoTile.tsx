@@ -9,8 +9,8 @@ import { ThemedView } from './template/themed-view';
 import { VideoPlayer } from './VideoPlayer';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const VIDEO_TILE_WIDTH = SCREEN_WIDTH * 0.9; // 90% of screen width
-const VIDEO_TILE_HEIGHT = VIDEO_TILE_WIDTH * 1.5; // 16:9 aspect ratio approximately
+const VIDEO_TILE_WIDTH = SCREEN_WIDTH * 0.9;
+const VIDEO_TILE_HEIGHT = VIDEO_TILE_WIDTH * 1.5;
 
 interface VideoTileProps {
   video: Video;
