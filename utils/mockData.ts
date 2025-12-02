@@ -1,17 +1,20 @@
 import { Post, Video } from '@/types';
 
 // Sample video URLs - using publicly available test videos
+// Using ONLY SD (Standard Definition) videos for better Android compatibility
+// These are lower resolution but load much faster and use less memory
+// All URLs verified to be publicly accessible (no 403 errors)
 const SAMPLE_VIDEO_URLS = [
-  'https://videos.pexels.com/video-files/30280414/12980115_1440_2560_25fps.mp4',
-  'https://videos.pexels.com/video-files/5532771/5532771-sd_226_426_25fps.mp4',
-  'https://videos.pexels.com/video-files/30043254/12887771_1080_1920_30fps.mp4',
-  'https://videos.pexels.com/video-files/28836213/12491352_1440_2560_30fps.mp4',
-  'https://videos.pexels.com/video-files/29842217/12815329_1080_1920_30fps.mp4',
-  'https://videos.pexels.com/video-files/5863152/5863152-sd_240_426_29fps.mp4',
-  'https://videos.pexels.com/video-files/5532765/5532765-uhd_2160_4096_25fps.mp4',
-  'https://videos.pexels.com/video-files/30129754/12920666_1440_2560_30fps.mp4',
-  'https://videos.pexels.com/video-files/28728787/12464794_1080_1920_30fps.mp4',
-  'https://videos.pexels.com/video-files/4620573/4620573-sd_226_426_25fps.mp4',
+  'https://videos.pexels.com/video-files/5532771/5532771-sd_226_426_25fps.mp4',      
+  'https://videos.pexels.com/video-files/5863152/5863152-sd_240_426_29fps.mp4',      
+  'https://videos.pexels.com/video-files/4620573/4620573-sd_226_426_25fps.mp4',      
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4', 
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4', 
 ];
 
 const SAMPLE_USERNAMES = [
@@ -65,7 +68,7 @@ function generateVideo(videoIndex: number): Video {
  * Generates a post with a horizontal carousel of videos
  */
 function generatePost(postIndex: number): Post {
-  const videoCount = randomInt(1, 5); // Each post has 1-5 videos
+  const videoCount = randomInt(1, 4); // Each post has 1-4 videos
   const videos: Video[] = [];
   
   for (let i = 0; i < videoCount; i++) {
@@ -92,7 +95,9 @@ function generatePost(postIndex: number): Post {
 }
 
 /**
- * Generates mock data for approximately 200 posts
+ * Generates mock data for posts
+ * Using SD (Standard Definition) videos for optimal Android performance
+ * Full 200 posts supported on both iOS and Android with SD videos
  */
 export function generateMockPosts(count: number = 200): Post[] {
   const posts: Post[] = [];

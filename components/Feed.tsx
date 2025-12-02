@@ -24,6 +24,7 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
   const lastScrollY = useRef(0);
   const scrollDirection = useRef<'up' | 'down'>('up');
   const [isScrolling, setIsScrolling] = useState(false);
+  const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Find active post index for prefetching
   const activePostIndex = useMemo(() => {
@@ -53,18 +54,34 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
         return; // Don't clear active post immediately
       }
 
-      // Find the most visible item (prefer centered items)
+      // Find the most visible item - works for both scroll up and down
+      // Strategy: Find the item with the highest visibility percentage
       let activePost: PostType | null = null;
       let bestIndex = -1;
+      let bestVisibility = 0;
 
       for (const item of viewableItems) {
         if (item.isViewable && item.item && item.index !== null) {
           const post = item.item as PostType;
           
-          // Take the first viewable item or prefer lower index (top of screen)
-          if (activePost === null || item.index < bestIndex) {
+          // Calculate visibility: use percentage if available, otherwise use boolean
+          // ViewToken may have percentageVisible or similar, but for now we'll use
+          // a simple heuristic: prefer items that are fully viewable
+          const visibility = item.isViewable === true ? 1 : (typeof item.isViewable === 'number' ? item.isViewable : 0);
+          
+          // Always prefer the item with highest visibility
+          // This works correctly for both scroll directions
+          if (activePost === null || visibility > bestVisibility) {
             activePost = post;
             bestIndex = item.index;
+            bestVisibility = visibility;
+          } else if (visibility === bestVisibility && item.index !== null) {
+            // If visibility is equal, prefer the one that's more centered
+            // For scroll up: prefer higher index (post that's coming into view)
+            // For scroll down: prefer lower index (post that's at top)
+            // But actually, we should prefer the one closest to center of screen
+            // For now, if visibility is same, keep the first one found (stable)
+            // This prevents flickering when multiple posts have same visibility
           }
         }
       }
@@ -85,8 +102,8 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
   );
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 75, // Post must be 75% visible to be considered active (reduced for faster detection)
-    minimumViewTime: 200, // Wait 200ms before considering it viewable (reduced for faster response)
+    itemVisiblePercentThreshold: 50, // Post must be 50% visible to be considered active (reduced for faster detection in both directions)
+    minimumViewTime: 100, // Wait 100ms before considering it viewable (reduced for faster response when scrolling up)
     waitForInteraction: false, // Don't wait for user to stop scrolling
   });
 
@@ -127,9 +144,38 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
         }
       }
       
+      // Clear any pending scroll-based updates
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Calculate which post is most centered based on scroll position
+      // This helps detect active post when scrolling up (backup to onViewableItemsChanged)
+      const estimatedItemHeight = 600; // Same as getItemLayout
+      const screenHeight = Dimensions.get('window').height;
+      const centerY = currentScrollY + screenHeight / 2;
+      const estimatedIndex = Math.floor(centerY / estimatedItemHeight);
+      
+      // Only update if index is valid and different from current
+      if (estimatedIndex >= 0 && estimatedIndex < posts.length) {
+        const estimatedPost = posts[estimatedIndex];
+        if (estimatedPost && estimatedPost.id !== activePostId) {
+          // Use a small delay to avoid flickering during fast scroll
+          scrollTimeoutRef.current = setTimeout(() => {
+            setActivePostId((prevId) => {
+              if (estimatedPost.id !== prevId) {
+                console.log('[Feed] Active post changed (scroll-based):', estimatedPost.id, 'index:', estimatedIndex);
+                return estimatedPost.id;
+              }
+              return prevId;
+            });
+          }, 200); // Small delay to avoid rapid changes
+        }
+      }
+      
       lastScrollY.current = currentScrollY;
     },
-    [onScrollDirectionChange]
+    [onScrollDirectionChange, posts, activePostId]
   );
 
   const handleScrollBeginDrag = useCallback(() => {
@@ -142,6 +188,20 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
 
   const handleMomentumScrollEnd = useCallback(() => {
     setIsScrolling(false);
+    // Clear any pending scroll-based updates when scroll ends
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+      scrollTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
   }, []);
 
   return (
@@ -157,9 +217,9 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
       onScrollEndDrag={handleScrollEndDrag}
       onMomentumScrollEnd={handleMomentumScrollEnd}
       scrollEventThrottle={16}
-      removeClippedSubviews={false} 
+      removeClippedSubviews={true} 
       maxToRenderPerBatch={2} 
-      updateCellsBatchingPeriod={100} 
+      updateCellsBatchingPeriod={50} 
       initialNumToRender={2} 
       windowSize={3}
       showsVerticalScrollIndicator={false}

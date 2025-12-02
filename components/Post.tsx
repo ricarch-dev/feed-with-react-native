@@ -164,7 +164,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig.current}
           getItemLayout={getItemLayout}
-          removeClippedSubviews={false}
+          removeClippedSubviews={true}
           maxToRenderPerBatch={2}
           initialNumToRender={1}
           windowSize={2}

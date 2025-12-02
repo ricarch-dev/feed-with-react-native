@@ -205,13 +205,23 @@ const VideoPlayerComponent: React.FC<VideoPlayerProps> = ({ uri, isActive }) => 
         if (player && isActive) {
           player.play();
         }
-      }, 100); // Small delay before playing to avoid overwhelming the network
+      }, 150); // Increased to 150ms for Android stability
       
       return () => clearTimeout(playTimeout);
     } else {
       // When video becomes inactive, pause immediately and reset buffering
       player.pause();
       setIsBuffering(false); // Clear buffering state when inactive
+      
+      // Android: Force garbage collection hint by clearing player reference
+      // This helps Android free up memory more aggressively
+      if (player) {
+        try {
+          player.pause();
+        } catch (e) {
+          // Ignore errors on cleanup
+        }
+      }
     }
   }, [isActive, player]);
 

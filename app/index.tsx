@@ -5,7 +5,7 @@ import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { generateMockPosts } from '@/utils/mockData';
 import React, { useCallback, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme();
@@ -13,6 +13,7 @@ export default function HomeScreen() {
   const [isBottomNavbarVisible, setIsBottomNavbarVisible] = useState(true);
 
   // Generate mock posts - memoized to avoid regenerating on every render
+  // Using SD videos allows 200 posts on both iOS and Android
   const posts = useMemo(() => generateMockPosts(200), []);
 
   const handleMenuPress = () => {

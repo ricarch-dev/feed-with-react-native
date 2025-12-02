@@ -32,12 +32,8 @@ const VideoTileComponent: React.FC<VideoTileProps> = ({ video, isActive = false 
     if (isActive) {
       setShowVideo(true);
     } else {
-      // Delay hiding to allow for smooth transitions when scrolling quickly
-      const hideTimeout = setTimeout(() => {
-        setShowVideo(false);
-      }, 300);
-      
-      return () => clearTimeout(hideTimeout);
+      // Immediately hide video player on Android to free memory faster
+      setShowVideo(false);
     }
   }, [isActive]);
 
