@@ -1,10 +1,10 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Video } from '@/types';
-import { Pause, Play } from 'lucide-react-native';
-import React, { useMemo } from 'react';
+import { videoCache } from '@/utils/videoCache';
+import { Image } from 'expo-image';
+import React, { useMemo, useState } from 'react';
 import { Dimensions, StyleSheet, View } from 'react-native';
-import { ThemedText } from './template/themed-text';
 import { ThemedView } from './template/themed-view';
 import { VideoPlayer } from './VideoPlayer';
 
@@ -21,35 +21,57 @@ const VideoTileComponent: React.FC<VideoTileProps> = ({ video, isActive = false 
   const colorScheme = useColorScheme() ?? 'light';
   const colors = Colors[colorScheme];
   const styles = useMemo(() => createStyles(colors, colorScheme), [colors, colorScheme]);
+  const [showVideo, setShowVideo] = useState(false);
+  
+  // Check if video has been watched before
+  const hasBeenWatched = videoCache.hasBeenWatched(video.url);
+  const isFullyWatched = videoCache.isFullyWatched(video.url);
 
-  const formattedDuration = useMemo(() => {
-    if (!video.duration) return '--:--';
-    const minutes = Math.floor(video.duration / 60);
-    const seconds = video.duration % 60;
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  }, [video.duration]);
+  // Show video player when active, hide when inactive
+  React.useEffect(() => {
+    if (isActive) {
+      setShowVideo(true);
+    } else {
+      // Delay hiding to allow for smooth transitions when scrolling quickly
+      const hideTimeout = setTimeout(() => {
+        setShowVideo(false);
+      }, 300);
+      
+      return () => clearTimeout(hideTimeout);
+    }
+  }, [isActive]);
 
   return (
     <ThemedView style={styles.container}>
+      {/* Thumbnail overlay - shows before video loads or when inactive */}
+      {video.thumbnail && !showVideo && (
+        <Image
+          source={{ uri: video.thumbnail }}
+          style={styles.thumbnail}
+          contentFit="cover"
+          transition={200}
+          placeholder={{ blurhash: 'L6PZfSi_.AyE_3t7t7R**0o#DgR4' }}
+        />
+      )}
+      
+      {/* Fallback placeholder when no thumbnail */}
+      {!video.thumbnail && !showVideo && (
+        <View style={styles.placeholderContainer}>
+          <View style={styles.playIconPlaceholder} />
+        </View>
+      )}
+      
+      {/* Watched indicator */}
+      {hasBeenWatched && (
+        <View style={[styles.watchedBadge, isFullyWatched && styles.fullyWatchedBadge]}>
+          <View style={styles.watchedDot} />
+        </View>
+      )}
+      
       {/* Video player */}
       <View style={styles.videoPlaceholder}>
         <VideoPlayer uri={video.url} isActive={isActive} />
       </View>
-      
-      {/* Video info overlay
-      <View style={styles.infoOverlay}>
-        <View style={styles.titleContainer}>
-          <ThemedText style={styles.placeholderText} numberOfLines={1}>
-            {isActive ? <Play /> : <Pause />} {video.title}
-          </ThemedText>
-          <ThemedText style={styles.urlText} numberOfLines={1}>
-            {video.url}
-          </ThemedText>
-        </View>
-        <ThemedText style={styles.duration}>
-          {formattedDuration}
-        </ThemedText>
-      </View> */}
     </ThemedView>
   );
 };
@@ -102,6 +124,43 @@ const createStyles = (colors: typeof Colors.light, colorScheme: 'light' | 'dark'
   titleContainer: {
     flex: 1,
     marginRight: 8,
+  },
+  thumbnail: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
+  },
+  watchedBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 2,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 12,
+    padding: 6,
+  },
+  fullyWatchedBadge: {
+    backgroundColor: 'rgba(76, 175, 80, 0.8)',
+  },
+  watchedDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#ffffff',
+  },
+  placeholderContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 1,
+  },
+  playIconPlaceholder: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderWidth: 3,
+    borderColor: 'rgba(255, 255, 255, 0.5)',
   },
 });
 

@@ -87,7 +87,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
 
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50, // Reduced threshold for better detection
-    minimumViewTime: 50, // Reduced time for faster response
+    minimumViewTime: 100, // Slightly increased for stability while still being responsive
   });
 
   const renderVideo = useCallback(
@@ -103,7 +103,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
   const keyExtractor = useCallback((item: PostType['videos'][0]) => item.id, []);
 
   const getItemLayout = useCallback(
-    (_: any, index: number) => ({
+    (_: unknown, index: number) => ({
       length: VIDEO_TILE_DIMENSIONS.width + 16,
       offset: (VIDEO_TILE_DIMENSIONS.width + 16) * index,
       index,
@@ -119,7 +119,7 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
         const nextVideo = post.videos[nextVideoIndex];
         // Prefetch metadata for the next video
         prefetchVideoMetadata(nextVideo.url).catch(() => {
-          // Silently fail - prefetching is optional
+          console.log('[Post] prefetch_error', { error: 'next video' });
         });
       }
     }
@@ -164,10 +164,10 @@ export const Post: React.FC<PostProps> = ({ post, isActive = false }) => {
           onViewableItemsChanged={onViewableItemsChanged}
           viewabilityConfig={viewabilityConfig.current}
           getItemLayout={getItemLayout}
-          removeClippedSubviews={false} // Disable to ensure proper visibility detection
-          maxToRenderPerBatch={3}
-          initialNumToRender={2}
-          windowSize={5}
+          removeClippedSubviews={false}
+          maxToRenderPerBatch={2}
+          initialNumToRender={1}
+          windowSize={2}
         />
         
         {/* Video indicators */}

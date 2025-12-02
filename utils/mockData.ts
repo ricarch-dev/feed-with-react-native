@@ -1,18 +1,17 @@
 import { Post, Video } from '@/types';
 
 // Sample video URLs - using publicly available test videos
-// These are placeholder URLs that can be replaced with actual video sources
 const SAMPLE_VIDEO_URLS = [
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4',
+  'https://videos.pexels.com/video-files/30280414/12980115_1440_2560_25fps.mp4',
+  'https://videos.pexels.com/video-files/5532771/5532771-sd_226_426_25fps.mp4',
+  'https://videos.pexels.com/video-files/30043254/12887771_1080_1920_30fps.mp4',
+  'https://videos.pexels.com/video-files/28836213/12491352_1440_2560_30fps.mp4',
+  'https://videos.pexels.com/video-files/29842217/12815329_1080_1920_30fps.mp4',
+  'https://videos.pexels.com/video-files/5863152/5863152-sd_240_426_29fps.mp4',
+  'https://videos.pexels.com/video-files/5532765/5532765-uhd_2160_4096_25fps.mp4',
+  'https://videos.pexels.com/video-files/30129754/12920666_1440_2560_30fps.mp4',
+  'https://videos.pexels.com/video-files/28728787/12464794_1080_1920_30fps.mp4',
+  'https://videos.pexels.com/video-files/4620573/4620573-sd_226_426_25fps.mp4',
 ];
 
 const SAMPLE_USERNAMES = [

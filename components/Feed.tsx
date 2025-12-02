@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { FlatList, ViewToken, StyleSheet, Dimensions } from 'react-native';
-import { Post } from './Post';
 import { Post as PostType } from '@/types';
 import { prefetchVideoMetadata } from '@/utils/prefetch';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Dimensions, FlatList, StyleSheet, ViewToken } from 'react-native';
+import Animated from 'react-native-reanimated';
+import { Post } from './Post';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -16,10 +17,13 @@ interface ViewableItemsChanged {
   changed: ViewToken[];
 }
 
+const AnimatedFlatList = Animated.createAnimatedComponent(FlatList<PostType>);
+
 export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) => {
   const [activePostId, setActivePostId] = useState<string | null>(null);
   const lastScrollY = useRef(0);
   const scrollDirection = useRef<'up' | 'down'>('up');
+  const [isScrolling, setIsScrolling] = useState(false);
 
   // Find active post index for prefetching
   const activePostIndex = useMemo(() => {
@@ -43,47 +47,47 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
 
   const onViewableItemsChanged = useCallback(
     ({ viewableItems }: ViewableItemsChanged) => {
-      // Find the post that is 100% visible (fully visible)
+      // Find the post that is most visible
       // Only one post should be active at a time
       if (viewableItems.length === 0) {
-        setActivePostId(null);
-        return;
+        return; // Don't clear active post immediately
       }
 
-      // Find the item that is fully visible (100%)
-      // Prefer the first fully visible item, or the one with highest visibility
+      // Find the most visible item (prefer centered items)
       let activePost: PostType | null = null;
-      let maxVisibility = 0;
+      let bestIndex = -1;
 
       for (const item of viewableItems) {
-        if (item.isViewable && item.item) {
-          // Check if item is fully visible (we use 100% threshold in viewabilityConfig)
-          // For items that pass the threshold, they should be considered 100% visible
+        if (item.isViewable && item.item && item.index !== null) {
           const post = item.item as PostType;
           
-          // If this is the first fully visible item, use it
-          if (!activePost) {
+          // Take the first viewable item or prefer lower index (top of screen)
+          if (activePost === null || item.index < bestIndex) {
             activePost = post;
-            maxVisibility = 100;
-          } else {
-            // If multiple items are visible, prefer the one that appeared first
-            // (usually the one with lower index)
-            if (item.index !== null && item.index < (viewableItems.find(v => v.item?.id === activePost?.id)?.index ?? Infinity)) {
-              activePost = post;
-            }
+            bestIndex = item.index;
           }
         }
       }
 
-      // Set active post only if we found a fully visible item
-      setActivePostId(activePost?.id ?? null);
+      // Set active post only if it actually changed
+      if (activePost) {
+        const newActiveId = activePost.id;
+        setActivePostId((prevId) => {
+          if (prevId !== newActiveId) {
+            console.log('[Feed] Active post changed:', newActiveId, 'index:', bestIndex);
+            return newActiveId;
+          }
+          return prevId;
+        });
+      }
     },
     []
   );
 
   const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 100, // Post must be 100% visible to be considered active
-    minimumViewTime: 200, // Minimum time in ms before considering it viewable
+    itemVisiblePercentThreshold: 75, // Post must be 75% visible to be considered active (reduced for faster detection)
+    minimumViewTime: 200, // Wait 200ms before considering it viewable (reduced for faster response)
+    waitForInteraction: false, // Don't wait for user to stop scrolling
   });
 
   const renderPost = useCallback(
@@ -95,9 +99,9 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
   );
 
   const getItemLayout = useCallback(
-    (_: any, index: number) => {
-      // Estimate item height - will be refined later
-      // For now, using a rough estimate based on video tile height + header/footer
+    (_: unknown, index: number) => {
+      // More accurate item height estimation
+      // Header (60) + Content (40) + Video carousel (400) + Footer (80) + margins (20)
       const estimatedItemHeight = 600;
       return {
         length: estimatedItemHeight,
@@ -128,8 +132,20 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
     [onScrollDirectionChange]
   );
 
+  const handleScrollBeginDrag = useCallback(() => {
+    setIsScrolling(true);
+  }, []);
+
+  const handleScrollEndDrag = useCallback(() => {
+    setIsScrolling(false);
+  }, []);
+
+  const handleMomentumScrollEnd = useCallback(() => {
+    setIsScrolling(false);
+  }, []);
+
   return (
-    <FlatList
+    <AnimatedFlatList
       data={posts}
       renderItem={renderPost}
       keyExtractor={keyExtractor}
@@ -137,12 +153,15 @@ export const Feed: React.FC<FeedProps> = ({ posts, onScrollDirectionChange }) =>
       onViewableItemsChanged={onViewableItemsChanged}
       viewabilityConfig={viewabilityConfig.current}
       onScroll={handleScroll}
+      onScrollBeginDrag={handleScrollBeginDrag}
+      onScrollEndDrag={handleScrollEndDrag}
+      onMomentumScrollEnd={handleMomentumScrollEnd}
       scrollEventThrottle={16}
-      removeClippedSubviews={true} // Optimize for performance
-      maxToRenderPerBatch={3} // Render 3 items per batch (reduced for better performance)
-      updateCellsBatchingPeriod={50} // Batch updates every 50ms
-      initialNumToRender={2} // Render 2 items initially (reduced for faster initial render)
-      windowSize={5} // Render 5 screens worth of items (reduced for better memory management)
+      removeClippedSubviews={false} 
+      maxToRenderPerBatch={2} 
+      updateCellsBatchingPeriod={100} 
+      initialNumToRender={2} 
+      windowSize={3}
       showsVerticalScrollIndicator={false}
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
