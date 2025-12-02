@@ -37,9 +37,9 @@ A high-performance vertical video feed implementation in Expo React Native, insp
    pnpm install
    ```
 
-3. **Install Expo AV (if not already installed)**
+3. **Install required Expo packages**
    ```bash
-   npx expo install expo-av
+   npx expo install expo-video expo-image react-native-reanimated react-native-gesture-handler
    ```
 
 4. **Start the development server**
@@ -124,16 +124,23 @@ The architecture follows a clear separation of concerns:
 Both vertical and horizontal lists use React Native's `FlatList` with optimized virtualization:
 
 **Vertical Feed:**
-- `removeClippedSubviews={true}` - Removes off-screen views from native view hierarchy
-- `maxToRenderPerBatch={3}` - Renders 3 items per batch
+- `removeClippedSubviews={false}` - Keeps nearby items rendered for smooth transitions
+- `maxToRenderPerBatch={2}` - Renders 2 items per batch
 - `initialNumToRender={2}` - Initial render of 2 items
-- `windowSize={5}` - Renders 5 screens worth of items
+- `windowSize={3}` - Renders 3 screens worth of items (optimized for memory)
 - `getItemLayout` - Pre-calculated layout for faster scrolling
+- `itemVisiblePercentThreshold={75}` - 75% visibility for active detection
+- `minimumViewTime={200}` - 200ms delay for stable detection
 
 **Horizontal Carousel:**
-- Same optimization parameters as vertical feed
+- `removeClippedSubviews={false}` - Prevents visual jumps
+- `maxToRenderPerBatch={2}` - Renders 2 items per batch
+- `initialNumToRender={1}` - Initial render of 1 item (first video)
+- `windowSize={2}` - Renders 2 screens worth of items
 - `pagingEnabled` - Snap-to-page behavior
 - `snapToInterval` - Precise snapping based on video tile dimensions
+- `itemVisiblePercentThreshold={50}` - 50% visibility for carousel detection
+- `minimumViewTime={100}` - 100ms delay for responsive detection
 
 ### Caching Strategy
 
@@ -252,8 +259,8 @@ Prefetching can be configured via `PrefetchOptions`:
 - **Max Retries**: 3 attempts
 - **Retry Delay**: 2 seconds between attempts
 - **Retry Methods**:
-  - Playback errors: `replayAsync()`
-  - Initialization errors: `loadAsync({ uri })`
+  - Playback errors: `player.replay()` (expo-video)
+  - Initialization errors: `player.replaceAsync(uri)` (expo-video)
 - **State Management**: Tracks retry count and error state
 - **Logging**: All retry attempts are logged for analytics
 
@@ -310,11 +317,16 @@ All analytics events are logged to console with `[VideoAnalytics]` prefix:
 
 ### Device Models Tested
 
-**Note**: This section should be updated after testing on actual devices.
+**Development Environment:**
+- **OS**: Windows 10 (Build 22631)
+- **Development**: Expo SDK 54, React Native 0.81.5
+- **Testing**: Expo Go app for real-time testing
 
-**Recommended Testing:**
+**Recommended Testing Devices:**
 - iOS: iPhone 12/13 (mid-tier), iPhone 14 Pro (high-end)
 - Android: Pixel 5/6 (mid-tier), Samsung Galaxy S21 (high-end)
+
+**Note**: For production deployment, test on actual mid-tier devices to validate 60 FPS target.
 
 ### Performance Behavior
 
@@ -355,6 +367,49 @@ All analytics events are logged to console with `[VideoAnalytics]` prefix:
 - Time to first frame (TTFF)
 - Network bandwidth usage
 - Battery consumption
+
+## 🎁 Bonus Features Implemented
+
+Beyond the core requirements, this implementation includes several enhancements:
+
+### 1. Video Cache System
+**Location**: `utils/videoCache.ts`
+
+- Tracks viewed videos and completion status
+- In-memory cache with automatic cleanup (max 100 entries)
+- Features:
+  - `hasBeenWatched(url)` - Check if video was viewed
+  - `isFullyWatched(url)` - Check if video was completed
+  - `markAsWatched(url, position, duration)` - Update watch status
+  - Visual badges on video tiles showing watch status
+
+### 2. Lazy Loading Thumbnails
+**Location**: `components/VideoTile.tsx`
+
+- Progressive image loading with `expo-image`
+- Blurhash placeholders for smooth transitions
+- Fallback placeholder when no thumbnail available
+- Reduces initial bandwidth and improves perceived performance
+
+### 3. Enhanced UI/UX
+- **Play/Pause Overlay**: Animated icons on video tap
+- **Loading Indicators**: Visible, styled loading states
+- **Theme Support**: Light/dark mode with `useColorScheme`
+- **Navigation**: Top navbar (logo, menu, search) and bottom navbar (5 icons)
+- **Scroll-Reactive UI**: Bottom navbar hides on scroll down, shows on scroll up
+
+### 4. Gesture Handler Integration
+**Location**: `components/Feed.tsx`
+
+- `react-native-gesture-handler` for precise scroll detection
+- Tracks scroll direction for UI animations
+- Better scroll performance and responsiveness
+
+### 5. Advanced Analytics
+- Tracks video cache hits (`hasBeenWatched` in logs)
+- Detailed prefetch logging
+- Retry attempt tracking
+- Position tracking for resume functionality
 
 ## 🔍 Gaps & Areas for Improvement
 
@@ -415,11 +470,22 @@ All analytics events are logged to console with `[VideoAnalytics]` prefix:
 ## 📝 Video Sources
 
 The app uses publicly available test videos from:
-- **Google GTV Sample Bucket**: `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/`
-- Videos are reused with varied metadata to create ~200 posts
+- **Pexels**: High-quality royalty-free videos
+  - `https://videos.pexels.com/video-files/...`
+- **Google GTV Sample Bucket**: Standard test videos
+  - `https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/`
+
+**Video Pool**: 10 unique video URLs to minimize conflicts and improve caching
+
+**Data Generation**: 
+- ~200 posts generated with varied metadata
 - Each post contains 1-5 videos in a horizontal carousel
+- Randomized usernames, content, timestamps, and metrics
+- Videos are rotated to create diverse content
 
 **Approach**: Small set of video URLs rotated with different metadata (usernames, content, metrics) to simulate a large feed without requiring 200+ unique videos.
+
+**Implementation**: `utils/mockData.ts`
 
 ## 🎯 Requirements Checklist
 
